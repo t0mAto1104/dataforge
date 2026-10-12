@@ -33,7 +33,7 @@ cd dataforge
 python3 -m http.server 3030 --bind 127.0.0.1
 ```
 
-浏览器访问 **http://127.0.0.1:3030/**。Python 仅用于提供静态文件，应用本身不依赖 Python。
+浏览器访问 [http://127.0.0.1:3030/](http://127.0.0.1:3030/)。Python 仅用于提供静态文件，应用本身不依赖 Python。
 
 ### 第一次使用
 
