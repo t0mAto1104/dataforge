@@ -1,0 +1,16 @@
+.DS_Store
+.cache/
+node_modules/
+.env
+.env.*
+!.env.example
+*.log
+.redcowork-app.json
+AGENTS.md
+HEARTBEAT.md
+IDENTITY.md
+MEMORY.md
+SOUL.md
+TOOLS.md
+USER.md
+memory/

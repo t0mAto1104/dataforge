@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DataForge · 自动化数据清洗与处理平台</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="app">
+    <!-- 侧边栏 -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-logo">◈</div>
+        <div class="brand-name">DataForge</div>
+      </div>
+
+      <nav class="nav">
+        <div class="nav-group-label">工作台</div>
+        <button class="nav-item active" data-stage="overview">
+          <span class="nav-icon">▤</span> 数据总览
+        </button>
+        <button class="nav-item" data-stage="assess">
+          <span class="nav-icon">◉</span> 数据评估
+        </button>
+        <button class="nav-item" data-stage="viz">
+          <span class="nav-icon">▦</span> 数据可视化
+        </button>
+        <button class="nav-item" data-stage="learn">
+          <span class="nav-icon">✎</span> 学习
+        </button>
+
+        <div class="nav-group-label">处理管线</div>
+        <button class="nav-item" data-stage="query">
+          <span class="nav-icon">⌕</span> 数据查询
+        </button>
+        <button class="nav-item" data-stage="preprocess">
+          <span class="nav-icon">⇄</span> 数据预处理
+        </button>
+        <button class="nav-item" data-stage="clean">
+          <span class="nav-icon">♻</span> 数据清洗
+        </button>
+        <button class="nav-item" data-stage="augment">
+          <span class="nav-icon">✦</span> 数据增强
+        </button>
+      </nav>
+
+      <!-- 操作历史（紧凑 · 左下角，支持回滚） -->
+      <div class="sidebar-history">
+        <div class="side-history-head">
+          <span>操作历史</span>
+          <button class="btn btn-sm btn-ghost" id="btn-clear-history" title="清空历史">清空</button>
+        </div>
+        <div class="side-history-list" id="history-list">
+          <div class="empty-hint">暂无操作记录</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+    <!-- 主区 -->
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="btn btn-sm btn-ghost sidebar-toggle" id="btn-toggle-sidebar" title="收起/展开侧栏">«</button>
+          <div class="topbar-text">
+            <h1 id="stage-title">数据总览</h1>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn btn-ghost" id="btn-load-sample">加载示例数据</button>
+          <label class="btn btn-ghost btn-upload">
+            上传 CSV
+            <input type="file" id="file-input" accept=".csv,text/csv" hidden />
+          </label>
+          <button class="btn btn-primary" id="btn-download">导出 CSV</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <!-- 数据总览 -->
+        <section class="stage" id="stage-overview">
+          <div class="cards-grid" id="overview-cards"></div>
+        </section>
+
+        <!-- 数据评估 -->
+        <section class="stage" id="stage-assess" hidden>
+          <div class="panel">
+            <div class="panel-head">
+              <h3>数据画像</h3>
+              <span class="panel-tip">各列类型、缺失、分布与异常</span>
+            </div>
+            <div class="table-scroll">
+              <table class="data-table" id="assess-table"></table>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="panel"><div class="panel-head"><h3>数值分布</h3><select class="select" id="hist-col"></select></div><canvas id="hist-canvas" height="230"></canvas></div>
+            <div class="panel"><div class="panel-head"><h3>箱线图（异常值）</h3><select class="select" id="box-col"></select></div><canvas id="box-canvas" height="230"></canvas></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>相关性热力图（Pearson）</h3></div>
+            <div class="heatmap-cols-row">
+              <span class="heatmap-cols-label">参与分析的列：</span>
+              <div id="heatmap-cols"></div>
+            </div>
+            <div class="heatmap-layout">
+              <div class="heatmap-canvas-wrap">
+                <canvas id="heatmap-canvas" height="360"></canvas>
+              </div>
+              <div class="heatmap-guide">
+                <div class="guide-title">怎么看热力图</div>
+                <div class="legend-bar"></div>
+                <div class="legend-labels"><span>-1</span><span>0</span><span>+1</span></div>
+                <div class="legend-cols">
+                  <span class="leg-chip leg-neg">红 = 负相关</span>
+                  <span class="leg-chip leg-pos">蓝 = 正相关</span>
+                </div>
+                <ul class="guide-list">
+                  <li>每个格子 = 两列之间的 <b>Pearson 相关系数 r</b>，取值 −1 ~ +1。</li>
+                  <li>越接近 ±1 线性关系越强，0 表示无线性相关。</li>
+                  <li><span class="leg-pos">蓝</span> = 正相关（同增同减）；<span class="leg-neg">红</span> = 负相关（此消彼长）。</li>
+                  <li>对角线恒为 1（列与自身），只看对角线以外的格子。</li>
+                  <li>常用阈值：|r| &lt; 0.3 弱 · 0.3~0.7 中等 · &gt; 0.7 强。</li>
+                  <li>相关 ≠ 因果；r 只度量线性，非线性关系可能被漏判。</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 数据预处理 -->
+        <section class="stage" id="stage-preprocess" hidden>
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-head-left"><h3>预处理操作</h3><span class="panel-tip">开启要执行的操作，点击「运行」</span></div>
+              <button class="collapse-toggle btn btn-sm btn-ghost" data-target="preprocess-body">收起 ▴</button>
+            </div>
+            <div class="panel-body" id="preprocess-body">
+              <div class="ops-grid" id="preprocess-ops"></div>
+              <div class="ops-actions">
+                <button class="btn btn-primary" id="btn-preprocess-run">运行预处理</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 数据清洗 -->
+        <section class="stage" id="stage-clean" hidden>
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-head-left"><h3>清洗操作</h3><span class="panel-tip">开启要执行的清洗规则</span></div>
+              <button class="collapse-toggle btn btn-sm btn-ghost" data-target="clean-body">收起 ▴</button>
+            </div>
+            <div class="panel-body" id="clean-body">
+              <div class="ops-grid" id="clean-ops"></div>
+              <div class="ops-actions">
+                <button class="btn btn-primary" id="btn-clean-run">运行清洗</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 数据增强 -->
+        <section class="stage" id="stage-augment" hidden>
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-head-left"><h3>增强操作</h3><span class="panel-tip">基于当前数据合成新样本</span></div>
+              <button class="collapse-toggle btn btn-sm btn-ghost" data-target="augment-body">收起 ▴</button>
+            </div>
+            <div class="panel-body" id="augment-body">
+              <div class="ops-grid" id="augment-ops"></div>
+              <div class="ops-actions">
+                <button class="btn btn-primary" id="btn-augment-run">运行增强</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 数据查询 -->
+        <section class="stage" id="stage-query" hidden>
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-head-left"><h3>查询构建器</h3><span class="panel-tip">筛选 + 排序 + 分组聚合</span></div>
+              <button class="collapse-toggle btn btn-sm btn-ghost" data-target="query-body">收起 ▴</button>
+            </div>
+            <div class="panel-body" id="query-body">
+            <div class="query-builder">
+              <div class="qb-row">
+                <div class="field"><label>选择列</label><div id="query-cols"></div></div>
+              </div>
+              <div class="qb-row">
+                <div class="field"><label>筛选条件</label><div id="filter-list"></div><button class="btn btn-sm btn-ghost" id="btn-add-filter">+ 添加条件</button></div>
+              </div>
+              <div class="qb-row qb-row-3">
+                <div class="field"><label>排序字段</label><select class="select" id="sort-col"></select></div>
+                <div class="field"><label>排序方式</label><select class="select" id="sort-dir"><option value="asc">升序</option><option value="desc">降序</option></select></div>
+                <div class="field"><label>限制行数</label><input class="input" id="limit-input" type="number" min="1" value="100" /></div>
+              </div>
+              <div class="qb-row qb-row-3">
+                <div class="field"><label>分组字段（可选）</label><select class="select" id="group-col"></select></div>
+                <div class="field"><label>聚合字段</label><select class="select" id="agg-col"></select></div>
+                <div class="field"><label>聚合函数</label><select class="select" id="agg-fn"><option value="count">计数</option><option value="sum">求和</option><option value="avg">平均</option><option value="min">最小</option><option value="max">最大</option></select></div>
+              </div>
+              <div class="ops-actions">
+                <button class="btn btn-ghost" id="btn-query-undo">回退上一步</button>
+                <button class="btn btn-primary" id="btn-query-run">执行查询</button>
+              </div>
+            </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 数据可视化 -->
+        <section class="stage" id="stage-viz" hidden>
+          <div class="viz-layout">
+            <aside class="panel viz-fields">
+              <div class="panel-head"><h3>字段</h3><span class="panel-tip">双击或拖到货架</span></div>
+              <div class="viz-fields-body">
+                <div class="viz-group">
+                  <div class="viz-group-title">维度</div>
+                  <div class="viz-field-list" id="viz-dims"></div>
+                </div>
+                <div class="viz-group">
+                  <div class="viz-group-title">度量</div>
+                  <div class="viz-field-list" id="viz-measures"></div>
+                </div>
+              </div>
+            </aside>
+
+            <div class="viz-main">
+              <div class="panel viz-shelves">
+                <div class="shelf-row">
+                  <span class="shelf-label">列（X 轴）</span>
+                  <div class="shelf-drop" id="shelf-cols" data-role="cols"></div>
+                </div>
+                <div class="shelf-row">
+                  <span class="shelf-label">行（Y 轴）</span>
+                  <div class="shelf-drop" id="shelf-rows" data-role="rows"></div>
+                </div>
+                <div class="shelf-row">
+                  <span class="shelf-label">颜色/分组</span>
+                  <div class="shelf-drop" id="shelf-color" data-role="color"></div>
+                </div>
+                <div class="shelf-cfg">
+                  <div class="shelf-field"><label>度量聚合</label><select class="select" id="viz-agg">
+                    <option value="sum">求和 SUM</option>
+                    <option value="avg">平均 AVG</option>
+                    <option value="count">计数 CNT</option>
+                    <option value="min">最小 MIN</option>
+                    <option value="max">最大 MAX</option>
+                    <option value="countd">去重计数 CNTD</option>
+                  </select></div>
+                  <div class="shelf-field"><label>标记类型</label>
+                    <div class="viz-marks" id="viz-marks">
+                      <button type="button" data-mark="bar" class="mark active">柱状</button>
+                      <button type="button" data-mark="line" class="mark">折线</button>
+                      <button type="button" data-mark="area" class="mark">面积</button>
+                      <button type="button" data-mark="pie" class="mark">饼图</button>
+                      <button type="button" data-mark="scatter" class="mark">散点</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="panel viz-canvas-panel">
+                <div class="panel-head">
+                  <h3>视图</h3>
+                  <span class="panel-tip" id="viz-hint">将维度拖到「列」、度量拖到「行」开始分析</span>
+                </div>
+                <canvas id="viz-canvas" height="400"></canvas>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 学习 -->
+        <section class="stage" id="stage-learn" hidden>
+          <div class="learn-groups">
+            <div class="learn-group">
+              <h3 class="learn-group-title"><span class="lg-dot" style="background:#22d3ee"></span>数据评估</h3>
+              <div class="learn-card"><div class="learn-card-title">数据画像（Profiling）</div><p>对每一列自动统计数据类型、非空数、缺失数、缺失率、唯一值、均值/中位数/标准差与异常值数量，形成结构化的质量快照。类型推断把列划分为数值、类别、文本三类；缺失率是判断是否要填充或删除的首要指标，唯一值极低（如接近 1）的列通常分析价值有限。</p></div>
+              <div class="learn-card"><div class="learn-card-title">分布分析（直方图）</div><p>把连续数值按等宽区间（bin）切分并统计各区间频数，直观看出集中趋势、偏态（左偏/右偏）、长尾与多峰分布。bin 数量会影响判断：过少掩盖细节，过多放大噪声，常用经验法则（如 Sturges）或直接取 10–20 个区间。</p></div>
+              <div class="learn-card"><div class="learn-card-title">箱线图与异常值</div><p>以五数概括（最小值、Q1、中位数 Q2、Q3、最大值）刻画分布，箱体覆盖中间 50% 数据，中位线反映中心。四分位距 IQR = Q3 − Q1，上下须取 Q1 − 1.5×IQR 与 Q3 + 1.5×IQR 内的实际极值，须之外的点判为异常值。该方法不依赖正态假设，对小样本也稳健。</p></div>
+              <div class="learn-card"><div class="learn-card-title">相关性（Pearson）</div><p>Pearson 相关系数 r 取值 −1 ~ 1，度量两数值列的线性相关程度：r&gt;0 同向、r&lt;0 反向、|r|≈0 无线性。注意它只捕捉线性关系，对非线性（如 U 形）不敏感，且极易被离群点拉偏；相关也不等于因果，需结合业务判断。</p></div>
+            </div>
+
+            <div class="learn-group">
+              <h3 class="learn-group-title"><span class="lg-dot" style="background:#5b8cff"></span>数据预处理</h3>
+              <div class="learn-card"><div class="learn-card-title">缺失值填充</div><p>用统计量代换空值：均值（数值列，简单但受异常值影响）、中位数（数值列，对离群稳健）、众数（类别列）。相比删除含缺失的行，填充能保留样本量、避免信息损失；更进阶的方法还有前向/后向填充、回归预测和多重插补（Multiple Imputation）。</p></div>
+              <div class="learn-card"><div class="learn-card-title">数值标准化</div><p>消除不同列之间的量纲与数量级差异。Z-score 标准化（减均值后除以标准差）使数据均值 0、方差 1，保留离群点相对位置但会放大其数值；Min-Max 归一化把数据线性缩放到 [0,1]，对异常值敏感。距离型或梯度型算法（KNN、SVM、神经网络、K-Means）对尺度敏感，通常需先标准化。</p></div>
+              <div class="learn-card"><div class="learn-card-title">类别编码</div><p>将离散类别转为数值供算法使用。标签编码（Label Encoding）把每类映射为连续整数，会引入本不存在的顺序，更适合有序类别或树模型；独热编码（One-Hot）为每类生成 0/1 指示列，不产生虚假顺序，适合线性模型，但类别基数高时会显著增加列数（维度爆炸），需权衡。</p></div>
+            </div>
+
+            <div class="learn-group">
+              <h3 class="learn-group-title"><span class="lg-dot" style="background:#34d399"></span>数据清洗</h3>
+              <div class="learn-card"><div class="learn-card-title">去重</div><p>移除完全相同的重复行（或按指定业务主键上的重复记录）。重复样本会人为放大其统计权重、扭曲分布与聚合结果，因此清洗的第一步通常是查重去重。去重前应先明确"重复"的业务定义：是全字段相同，还是按订单号/身份证号等业务键判定。</p></div>
+              <div class="learn-card"><div class="learn-card-title">异常值处理</div><p>按 IQR（Q1 − 1.5×IQR / Q3 + 1.5×IQR）或 Z-score（|z| &gt; 2 或 3）判定离群点。可删除该行得到"干净"样本，但会损失信息；也可截断（Winsorize）把超出边界的值收缩到边界，既控制极端影响又保留样本量与顺序。选择取决于离群是真实取值还是记录错误。</p></div>
+              <div class="learn-card"><div class="learn-card-title">字符串清洗</div><p>修正脏文本以保证后续分组、匹配、聚合的一致性。常见操作：去首尾空格、合并连续空格、统一大小写、全半角归一、去除不可见字符、统一日期与分隔符格式。文本列若未清洗，同一含义会被拆成多个类别（如"北京"与" 北京 "），直接扭曲统计结果。</p></div>
+            </div>
+
+            <div class="learn-group">
+              <h3 class="learn-group-title"><span class="lg-dot" style="background:#fbbf24"></span>数据增强</h3>
+              <div class="learn-card"><div class="learn-card-title">SMOTE 过采样</div><p>针对类别不平衡，对少数类样本选取 k 个近邻，在样本与其近邻的连线上随机取点做线性插值，合成新的少数类样本。相比简单复制，SMOTE 生成的样本具有多样性，能降低过拟合风险；但在高维稀疏数据中近邻可能不具代表性，需结合实际效果评估。</p></div>
+              <div class="learn-card"><div class="learn-card-title">噪声扰动 / Bootstrap</div><p>对数值列叠加均值为 0、标准差为 σ 的高斯噪声，扩充样本并提升模型对输入扰动的鲁棒性；Bootstrap 采用有放回抽样直到目标规模，既可扩大数据集，也常用于估计统计量（均值、方差等）的抽样分布与置信区间。</p></div>
+            </div>
+
+            <div class="learn-group">
+              <h3 class="learn-group-title"><span class="lg-dot" style="background:#7c5cff"></span>数据查询</h3>
+              <div class="learn-card"><div class="learn-card-title">筛选与排序</div><p>对行做多条件联合过滤，支持：等于、不等于、大于/小于、大于等于/小于等于、包含（文本）、为空/非空。筛选得到子集后可按字段升/降序排列并截取前 N 行，快速定位目标数据。多个条件之间为"且"（同时满足）逻辑。</p></div>
+              <div class="learn-card"><div class="learn-card-title">分组聚合</div><p>按分组字段把数据切分为若干组，对目标列应用聚合函数，得到一行一组的汇总视图。常见聚合：计数 count、求和 sum、平均 avg、最小 min、最大 max。典型应用如"按城市统计平均消费""按品类统计订单数"，是数据透视与报表的基础操作。</p></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 数据预览（可收起） -->
+        <section class="panel data-preview" id="data-preview-panel">
+          <div class="panel-head">
+            <h3>数据预览</h3>
+            <div class="panel-head-right">
+              <span class="panel-tip" id="preview-meta"></span>
+              <button class="btn btn-sm btn-ghost" id="btn-toggle-preview">收起 ▴</button>
+            </div>
+          </div>
+          <div class="preview-body" id="preview-body">
+            <div class="table-scroll">
+              <table class="data-table" id="data-preview-table"></table>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="js/lib/stats.js"></script>
+  <script src="js/lib/data.js"></script>
+  <script src="js/lib/charts.js"></script>
+  <script src="js/lib/algo.js"></script>
+  <script src="js/lib/geo.js"></script>
+  <script src="js/lib/china-geo.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
